@@ -1,0 +1,75 @@
+/* Réinitialisation globale */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body,
+button,
+textarea {
+    font-family: 'Poppins', sans-serif;
+}
+body {
+    background: #f4f7f9;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+/* Titre principal */
+h2 {
+    font-size: 40px;
+    color: #0d47a1;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+/* Formulaire */
+form {
+    background-color: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Labels */
+label {
+    display: block;
+    font-weight: 600;
+    color: #444;
+    margin-top: 15px;
+}
+
+/* Champs de fichier */
+input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border: 2px dashed #ccc;
+    border-radius: 6px;
+    background-color: #f9f9f9;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+/* Bouton */
+button {
+    width: 100%;
+    padding: 12px;
+    background-color: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 25px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #1565c0;
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Extraction indicateurs PDF + Excel</title>
+    <link rel="stylesheet" href="style.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+
+
+</head>
+<body>
+<h2>Extraction indicateurs PDF + Excel</h2>
+
+<form id="upload-form" enctype="multipart/form-data" method="POST" action="http://localhost:3000/extract">
+    <label>Fichiers PDF (plusieurs) :</label><br/>
+    <input type="file" name="pdfs" multiple accept=".pdf" required/><br/><br/>
+
+    <label>Fichier Excel :</label><br/>
+    <input type="file" name="excel" accept=".xlsx,.xls" required/><br/><br/>
+
+    <button type="submit">Extraire</button>
+</form>
+
+<script>
+    const form = document.getElementById("upload-form");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(form);
+
+      const response = await fetch("http://localhost:3000/extract", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Le backend renvoie le fichier Excel mis à jour
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "matrice_indicateurs_mise_a_jour.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        alert("Erreur lors de l'extraction.");
+      }
+    });
+
+</script>
+</body>
+</html>
