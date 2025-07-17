@@ -1,3 +1,4 @@
+
 import sys
 import io
 import os
@@ -5,6 +6,8 @@ import fitz  # PyMuPDF
 import pandas as pd
 import google.generativeai as genai
 from io import StringIO
+from docx import Document
+
 # --- Fonction extraction texte depuis PDF ---
 def extract_text_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
@@ -13,12 +16,40 @@ def extract_text_from_pdf(pdf_path):
         full_text += page.get_text()
     return full_text
 
+# --- Fonction extraction texte depuis DOCX ---
+def extract_text_from_docx(docx_path):
+    doc = Document(docx_path)
+    full_text = ""
+
+    for para in doc.paragraphs:
+        if para.text.strip():
+            full_text += para.text.strip() + "\n"
+
+    for table in doc.tables:
+        for row in table.rows:
+            row_data = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+            if row_data:
+                full_text += "\t".join(row_data) + "\n"
+
+    for section in doc.sections:
+        header = section.header
+        footer = section.footer
+        if header:
+            for para in header.paragraphs:
+                if para.text.strip():
+                    full_text += "[HEADER] " + para.text.strip() + "\n"
+        if footer:
+            for para in footer.paragraphs:
+                if para.text.strip():
+                    full_text += "[FOOTER] " + para.text.strip() + "\n"
+
+    return full_text
 
 # --- Fonction lecture matrice Excel ---
 def read_excel_matrix(excel_path):
-    df = pd.read_excel(excel_path)
-    return df
+    return pd.read_excel(excel_path)
 
+# --- Construction du prompt ---
 def create_prompt_general(matrice_json, texte_pdf):
     prompt = f"""
 Tu es un assistant intelligent spécialisé dans l’analyse de rapports statistiques.
@@ -31,7 +62,7 @@ Voici la matrice :
 
 {matrice_json}
 
-Et voici le contenu textuel extrait de plusieurs fichiers PDF de rapports annuels ou trimestriels, non structurés :
+Et voici le contenu textuel extrait de plusieurs fichiers PDF ou Word non structurés :
 
 {texte_pdf}
 
@@ -47,77 +78,58 @@ Ne mets aucune explication, uniquement le contenu CSV.
 """
     return prompt
 
-
-# --- Fonction appel API Gemini ---
-
+# --- Appel à Gemini ---
 def call_gemini_api(prompt):
-
-    genai.configure(api_key="AIzaSyBLQfllqi4UiLpjt6HUqUCQ0iBMykvWelc")  # Remplace par ta vraie clé
-
+    genai.configure(api_key="AIzaSyBLQfllqi4UiLpjt6HUqUCQ0iBMykvWelc")  # Remplace par ta clé
     model = genai.GenerativeModel(model_name="gemini-2.5-pro")
     response = model.generate_content(prompt)
     return response.text
 
-
-def dataframe_to_json_list(df):
-    # Convertit chaque ligne du DataFrame en dictionnaire
-    return df.fillna("").to_dict(orient="records")
-
-def update_excel_with_results(df_original, df_resultat):
-    for i in range(len(df_original)):
-        for col in df_original.columns:
-            if col in df_resultat.columns:
-                val_originale = df_original.at[i, col]
-                val_extraite = df_resultat.at[i, col]
-                if (pd.isna(val_originale) or val_originale == "") and str(val_extraite).strip() not in ["", "Non trouvé", None]:
-                    df_original.at[i, col] = val_extraite
-    return df_original
-
-# --- Parseur Gemini robuste ---
+# --- Parseur CSV Gemini ---
 def parse_gemini_csv_response(response_text):
     try:
         df = pd.read_csv(io.StringIO(response_text), sep=';', quotechar='"', encoding='utf-8')
-        # Nettoyage des colonnes
         df.columns = df.columns.str.strip()
-        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        df = df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+
         return df
     except Exception as e:
         print("Erreur lors du parsing CSV :", e)
         print("Réponse brute :", response_text)
         return pd.DataFrame()
-def main(pdf_files, excel_path, output_excel_path):
-    # Ton code actuel ici (à adapter un peu)
 
-    # Exemple (simplifié) :
-
-
+# --- Fonction principale ---
+def main(doc_type, doc_paths_csv, excel_path, output_path):
+    doc_paths = doc_paths_csv.split(",")
     df = pd.read_excel(excel_path)
-    full_text = ""
-    for pdf in pdf_files:
-        full_text += extract_text_from_pdf(pdf) + "\n"
 
-    matrice_csv = df.to_csv(index=False)
-    prompt = create_prompt_general(matrice_csv, full_text)
-    response_text = call_gemini_api(prompt)
-    df_result = parse_gemini_csv_response(response_text)
+    full_text = ""
+    for path in doc_paths:
+        if doc_type == "pdf":
+            full_text += extract_text_from_pdf(path) + "\n"
+        else:
+            full_text += extract_text_from_docx(path) + "\n"
+
+    prompt = create_prompt_general(df.to_csv(index=False), full_text)
+    response = call_gemini_api(prompt)
+    df_result = parse_gemini_csv_response(response)
 
     if df_result.empty:
-        print("Résultat vide, arrêt du script.")
+        print("Aucune donnée extraite.")
         sys.exit(1)
 
-    df_result.to_excel(output_excel_path, index=False)
-    print(f"Fichier sauvegardé dans {output_excel_path}")
+    df_result.to_excel(output_path, index=False)
+    print("Traitement terminé.")
 
-
+# --- Entrée script ---
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python traitement.py <pdfs_csv> <excel_path> <output_excel_path>")
+    if len(sys.argv) != 5:
+        print("Usage: python traitement.py <doc_type> <doc_paths_csv> <excel_path> <output_path>")
         sys.exit(1)
 
-    pdfs_csv = sys.argv[1]
-    excel_path = sys.argv[2]
-    output_excel_path = sys.argv[3]
+    doc_type = sys.argv[1]         # "pdf" ou "word"
+    doc_paths_csv = sys.argv[2]    # chemins séparés par virgule
+    excel_path = sys.argv[3]
+    output_path = sys.argv[4]
 
-    pdf_files = pdfs_csv.split(",")
-
-    main(pdf_files, excel_path, output_excel_path)
+    main(doc_type, doc_paths_csv, excel_path, output_path)

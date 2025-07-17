@@ -22,39 +22,39 @@ app.use(express.static("public"));
 app.post(
   "/extract",
   upload.fields([
-    { name: "pdfs", maxCount: 10 },
+    { name: "document", maxCount: 10 },
     { name: "excel", maxCount: 1 },
   ]),
   (req, res) => {
     try {
-      if (
-        !req.files["pdfs"] ||
-        req.files["pdfs"].length === 0 ||
-        !req.files["excel"] ||
-        req.files["excel"].length === 0
-      ) {
+      const docFiles = req.files["document"];
+      const excelFile = req.files["excel"]?.[0];
+
+      if (!docFiles || docFiles.length === 0 || !excelFile) {
         return res.status(400).send("Fichiers manquants");
       }
 
-      // Récupérer les chemins des fichiers uploadés
-      const pdfPaths = req.files["pdfs"].map((file) => file.path);
-      const excelPath = req.files["excel"][0].path;
+      // Vérifie que tous les documents sont du même type
+      const extensions = docFiles.map(f => path.extname(f.originalname).toLowerCase());
+      const allArePDF = extensions.every(ext => ext === ".pdf");
+      const allAreWord = extensions.every(ext => ext === ".doc" || ext === ".docx");
 
-      // Chemin pour le fichier Excel résultat
+      if (!allArePDF && !allAreWord) {
+        return res.status(400).send("Tous les fichiers doivent être soit PDF, soit Word");
+      }
+
+      const docType = allArePDF ? "pdf" : "word";
+      const docPaths = docFiles.map(f => f.path);
+      const docPathsCSV = docPaths.join(",");
       const outputExcelPath = path.join("uploads", "resultat.xlsx");
 
-      // Appel du script Python en passant les chemins des fichiers en argument
-      // Remplace "python" par pythonExe si tu veux forcer le python du venv
-      const pythonProcess = spawn(
-        "python",
-        // pythonExe,
-        [
-          "traitement.py",
-          pdfPaths.join(","),
-          excelPath,
-          outputExcelPath,
-        ]
-      );
+      const pythonProcess = spawn("python", [
+        "traitement.py",
+        docType,
+        docPathsCSV,
+        excelFile.path,
+        outputExcelPath,
+      ]);
 
       pythonProcess.stdout.on("data", (data) => {
         console.log(`Python stdout: ${data}`);
@@ -67,15 +67,14 @@ app.post(
       pythonProcess.on("close", (code) => {
         console.log(`Python process exited with code ${code}`);
         if (code === 0) {
-          // Envoyer le fichier Excel résultat au client
           res.download(outputExcelPath, "matrice_indicateurs_mise_a_jour.xlsx", (err) => {
             if (err) {
               console.error("Erreur lors de l'envoi du fichier:", err);
               res.status(500).send("Erreur lors de l'envoi du fichier");
             }
 
-            // Nettoyer fichiers uploadés
-            [...pdfPaths, excelPath, outputExcelPath].forEach((file) => {
+            // Nettoyage fichiers temporaires
+            [...docPaths, excelFile.path, outputExcelPath].forEach((file) => {
               fs.unlink(file, () => {});
             });
           });
@@ -89,6 +88,7 @@ app.post(
     }
   }
 );
+
 
 app.listen(port, () => {
   console.log(`Serveur démarré sur http://localhost:${port}`);
