@@ -81,7 +81,7 @@ Ne mets aucune explication, uniquement le contenu CSV.
 # --- Appel à Gemini ---
 def call_gemini_api(prompt):
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])  # Remplace par ta clé
-    model = genai.GenerativeModel(model_name="gemini-2.5-pro")
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash")
     response = model.generate_content(prompt)
     return response.text
 
