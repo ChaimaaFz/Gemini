@@ -80,7 +80,7 @@ Ne mets aucune explication, uniquement le contenu CSV.
 
 # --- Appel à Gemini ---
 def call_gemini_api(prompt):
-    genai.configure(api_key="AIzaSyBLQfllqi4UiLpjt6HUqUCQ0iBMykvWelc")  # Remplace par ta clé
+    genai.configure(api_key="AQ.Ab8RN6LN4GOv9hEjwCh0Y0zC6MpcjvU1eLcsaAOq49ze-8cA3w")  # Remplace par ta clé
     model = genai.GenerativeModel(model_name="gemini-2.5-pro")
     response = model.generate_content(prompt)
     return response.text
